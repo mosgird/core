@@ -35,6 +35,13 @@
 # (setq fstar-subp-prover-args #'my-fstar-compute-prover-args-using-make)
 #
 
+# Mosgird change to the vendored file: HAX_INCLUDE_DIRS adds include
+# directories by hand. hax 0.5.0's proof libraries (Core_models and the
+# rest) live in hax-lib/proof-libs/fstar, which neither the hax-lib
+# lookup below nor `hax-env` finds. verify.yml sets it from the pinned
+# hax flake's source.
+HAX_INCLUDE_DIRS ?=
+
 HACL_HOME     ?= $(HOME)/.hax/hacl_home
 FSTAR_BIN     ?= $(shell command -v fstar.exe 1>&2 2> /dev/null && echo "fstar.exe" || echo "$(FSTAR_HOME)/bin/fstar.exe")
 
@@ -109,7 +116,7 @@ define FINDLIBS
 endef
 export FINDLIBS
 
-FSTAR_INCLUDE_DIRS = $(HACL_HOME)/lib $(shell bash -c "$$FINDLIBS")
+FSTAR_INCLUDE_DIRS = $(HACL_HOME)/lib $(HAX_INCLUDE_DIRS) $(shell bash -c "$$FINDLIBS")
 
 FSTAR_FLAGS = --cmi \
   --warn_error -331 \

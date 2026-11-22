@@ -59,14 +59,34 @@ jobs:
       - name: Extract mosgird-protocol to F*
         working-directory: crates/mosgird-protocol
         run: nix shell "$HAX_FLAKE#hax" --command cargo hax into fstar
+      # The F* proof libraries come from the source of the same pinned
+      # flake. hax-env points at an old location for them, so the
+      # directories are passed to the Makefile by hand.
+      - name: Locate hax's F* proof libraries
+        run: |
+          meta=$(nix flake prefetch --json "$HAX_FLAKE")
+          src=$(printf '%s' "$meta" | jq -r '.storePath // .path // empty')
+          test -n "$src" || { echo "no store path in: $meta"; exit 1; }
+          libs="$src/hax-lib/proof-libs/fstar"
+          dirs="$libs/core $libs/rust_primitives $libs/hax_lib $src/hax-lib/proofs/fstar/extraction"
+          for d in $dirs; do test -d "$d" || { echo "missing: $d"; exit 1; }; done
+          echo "HAX_INCLUDE_DIRS=$dirs" >> "$GITHUB_ENV"
       - name: F* lax check (the code is in the hax subset and type-checks)
         working-directory: crates/mosgird-protocol/proofs/fstar/extraction
         run: |
           nix shell "$HAX_FLAKE#hax" "$HAX_FLAKE#fstar" "$HAX_FLAKE#hax-env" --command \
             sh -c 'eval "$(hax-env)" && OTHERFLAGS="--lax" make'
-      # Panic freedom in F*. Not yet required: the loops need hax-lib loop
-      # invariants first (README.md, "Verification"). Kani already proves
-      # panic freedom for every input up to its bounds.
+      # A full check proves nothing if the extracted code skips proofs.
+      - name: No admitted or assumed proof obligations in the extraction
+        working-directory: crates/mosgird-protocol/proofs/fstar/extraction
+        run: |
+          if grep -nwE 'admit|admit_smt_queries|assume' ./*.fst ./*.fsti 2>/dev/null; then
+            echo "the extracted F* skips a proof obligation"; exit 1
+          fi
+      # Panic freedom in F*, for inputs of any length. Not yet required: one
+      # slice index in base32 needs a hax-lib loop invariant first
+      # (README.md, "Verification"). Kani already proves panic freedom for
+      # every input up to its bounds.
       - name: F* full check (panic freedom, reported only)
         continue-on-error: true
         working-directory: crates/mosgird-protocol/proofs/fstar/extraction
