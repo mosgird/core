@@ -1,0 +1,37 @@
+name: test-ratio
+
+# The test-driven development rule (AGENTS.md): at least 3 lines of test
+# code per line of production code, for the repository, each unit and each
+# production file. The checker is kept once, in the protocol repository,
+# at a pinned commit.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-ratio:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      # Locked to commits in actions.lock (see actions-lock.yml).
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/checkout@v7.0.1
+        with:
+          repository: mosgird/protocols
+          ref: 9b7706a826ec453d274dc601cc3e1bc006b4b494
+          path: .protocols
+          persist-credentials: false
+
+      # The checker reads only files tracked by git, so the protocol
+      # checkout above is not measured.
+      - name: Check the test-to-code ratio
+        run: python3 .protocols/scripts/check_test_ratio.py .

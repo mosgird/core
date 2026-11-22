@@ -1,3 +1,4 @@
+// covers: crates/mosgird-protocol/src/base32.rs, crates/mosgird-crypto/src/lib.rs
 //! Constant-time check under Valgrind, in the style of ctgrind.
 //!
 //! Secret inputs are marked as undefined memory. Valgrind's Memcheck then

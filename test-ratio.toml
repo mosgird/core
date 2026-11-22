@@ -1,0 +1,7 @@
+# Configuration for the test-to-code ratio check (AGENTS.md, "Test-driven
+# development"). The checker and the 3:1 ratio live in mosgird/protocols,
+# scripts/check_test_ratio.py; the ratio cannot be changed here.
+
+# Whole files that are verification code, beyond the checker's defaults
+# (tests/, fuzz/, ...): the constant-time test tools and the CI check scripts.
+test_paths = ["tools/**", "scripts/**"]

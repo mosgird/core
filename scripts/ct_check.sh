@@ -1,4 +1,5 @@
 #!/bin/sh
+# covers: *
 # Constant-time check under Valgrind. See tools/ct-check/src/main.rs.
 #
 # Fails if Memcheck reports a branch or an address that depends on a

@@ -1,4 +1,5 @@
 #!/bin/sh
+# covers: *
 # Runs the dudect timing test and fails if any |t| exceeds the limit.
 # dudect's authors read |t| > 5 as a likely leak; the default limit of 10
 # leaves room for noise on shared CI runners. Usage:

@@ -1,3 +1,4 @@
+// covers: crates/mosgird-protocol/src/base32.rs
 //! Arbitrary text: the decoder never panics, and whatever it accepts
 //! encodes back to exactly the same text (it accepts only canonical
 //! input). The Kani proofs cover this for short inputs; fuzzing covers

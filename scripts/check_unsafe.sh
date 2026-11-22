@@ -1,4 +1,5 @@
 #!/bin/sh
+# covers: *
 # Enforces the rule that `unsafe` code exists in one module only:
 # crates/mosgird-core/src/secure_mem.rs. The compiler enforces the rest:
 # the workspace forbids unsafe_code, and mosgird-core denies it except on
