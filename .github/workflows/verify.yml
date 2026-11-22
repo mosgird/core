@@ -64,7 +64,9 @@ jobs:
       # directories are passed to the Makefile by hand.
       - name: Locate hax's F* proof libraries
         run: |
-          src=$(nix flake metadata --json "$HAX_FLAKE" | jq -r .path)
+          meta=$(nix flake prefetch --json "$HAX_FLAKE")
+          src=$(printf '%s' "$meta" | jq -r '.storePath // .path // empty')
+          test -n "$src" || { echo "no store path in: $meta"; exit 1; }
           libs="$src/hax-lib/proof-libs/fstar"
           dirs="$libs/core $libs/rust_primitives $libs/hax_lib $src/hax-lib/proofs/fstar/extraction"
           for d in $dirs; do test -d "$d" || { echo "missing: $d"; exit 1; }; done
