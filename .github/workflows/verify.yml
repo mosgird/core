@@ -59,6 +59,16 @@ jobs:
       - name: Extract mosgird-protocol to F*
         working-directory: crates/mosgird-protocol
         run: nix shell "$HAX_FLAKE#hax" --command cargo hax into fstar
+      # The F* proof libraries come from the source of the same pinned
+      # flake. hax-env points at an old location for them, so the
+      # directories are passed to the Makefile by hand.
+      - name: Locate hax's F* proof libraries
+        run: |
+          src=$(nix flake metadata --json "$HAX_FLAKE" | jq -r .path)
+          libs="$src/hax-lib/proof-libs/fstar"
+          dirs="$libs/core $libs/rust_primitives $libs/hax_lib $src/hax-lib/proofs/fstar/extraction"
+          for d in $dirs; do test -d "$d" || { echo "missing: $d"; exit 1; }; done
+          echo "HAX_INCLUDE_DIRS=$dirs" >> "$GITHUB_ENV"
       - name: F* lax check (the code is in the hax subset and type-checks)
         working-directory: crates/mosgird-protocol/proofs/fstar/extraction
         run: |
