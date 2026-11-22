@@ -28,7 +28,7 @@ windows-sys = { version = "0.61.2", features = ["Win32_System_Memory", "Win32_Sy
 [workspace.lints.rust]
 unsafe_code = "forbid"
 missing_docs = "warn"
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)", "cfg(hax)"] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)", "cfg(hax)", "cfg(hax_compilation)"] }
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
