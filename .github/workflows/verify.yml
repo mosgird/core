@@ -76,11 +76,16 @@ jobs:
         run: |
           nix shell "$HAX_FLAKE#hax" "$HAX_FLAKE#fstar" "$HAX_FLAKE#hax-env" --command \
             sh -c 'eval "$(hax-env)" && OTHERFLAGS="--lax" make'
-      # Panic freedom in F*. Not yet required: the loops need hax-lib loop
-      # invariants first (README.md, "Verification"). Kani already proves
-      # panic freedom for every input up to its bounds.
-      - name: F* full check (panic freedom, reported only)
-        continue-on-error: true
+      # A full check proves nothing if the extracted code skips proofs.
+      - name: No admitted or assumed proof obligations in the extraction
+        working-directory: crates/mosgird-protocol/proofs/fstar/extraction
+        run: |
+          if grep -nwE 'admit|admit_smt_queries|assume' ./*.fst ./*.fsti 2>/dev/null; then
+            echo "the extracted F* skips a proof obligation"; exit 1
+          fi
+      # Panic freedom in F*, for inputs of any length: no out-of-bounds
+      # access and no arithmetic overflow.
+      - name: F* full check (panic freedom)
         working-directory: crates/mosgird-protocol/proofs/fstar/extraction
         run: |
           nix shell "$HAX_FLAKE#hax" "$HAX_FLAKE#fstar" "$HAX_FLAKE#hax-env" --command \
