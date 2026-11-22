@@ -55,6 +55,37 @@ jobs:
       - name: tests (release)
         run: cargo test --workspace --exclude ct-check --locked --release
 
+  # The newest Alpine, for musl libc. GitHub has no Alpine runner, so the
+  # job runs in a container on the newest Ubuntu runner. The image is
+  # pinned by digest, as actions-lock requires; to move to a newer Alpine,
+  # replace the digest with the one alpine:latest has then, in its own
+  # pull request.
+  test-alpine:
+    name: test (alpine)
+    runs-on: ubuntu-26.04
+    container:
+      image: alpine:latest@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
+      # LockedBox locks every page it holds. Docker's default limit on
+      # locked memory is lower than the Ubuntu runners' 8 MiB, which
+      # parallel tests can exceed; this gives the container the same 8 MiB.
+      options: --ulimit memlock=8388608:8388608
+    timeout-minutes: 30
+    steps:
+      - name: Install the build tools and rustup
+        run: apk add --no-cache build-base git rustup
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain from rust-toolchain.toml
+        run: |
+          rustup-init -y --no-modify-path --default-toolchain none
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/rustup" toolchain install
+      - name: tests (debug, overflow checks on)
+        run: cargo test --workspace --exclude ct-check --locked
+      - name: tests (release)
+        run: cargo test --workspace --exclude ct-check --locked --release
+
   miri:
     runs-on: ubuntu-26.04
     timeout-minutes: 30
