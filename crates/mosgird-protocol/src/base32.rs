@@ -213,20 +213,23 @@ fn decode_block(c: &[u8; BLOCK_CHARS], out: &mut [u8; BLOCK_BYTES], case: Case) 
 /// then.
 pub fn encode(input: &[u8], out: &mut [u8], case: Case) -> Result<usize, Error> {
     // The same value as `encoded_len`, computed in plain arithmetic so
-    // that the F* proof sees how it bounds the writes below. The guard
-    // cannot trigger for a real slice, which is at most `isize::MAX`
-    // bytes long; it only rules out overflow.
+    // that the F* proof sees how it bounds the writes below. Both checks
+    // compare against `out.len()`, so no step can overflow, and the proof
+    // needs no fact about `usize::MAX`, whose width hax leaves open (32
+    // or 64 bits). If the true length would overflow, `out` is too short
+    // for it, so the error is the same as `encoded_len` gives.
     let full = input.len() / BLOCK_BYTES;
     let rest = input.len() % BLOCK_BYTES;
-    if full > (usize::MAX - BLOCK_CHARS) / BLOCK_CHARS {
-        return Err(Error::OutputTooSmall);
-    }
     let tail = if rest == 0 { 0 } else { tail_chars(rest) };
-    let needed = full * BLOCK_CHARS + tail;
     let out_len = out.len();
-    if out_len < needed {
+    if full > out_len / BLOCK_CHARS {
         return Err(Error::OutputTooSmall);
     }
+    let full_chars = full * BLOCK_CHARS;
+    if tail > out_len - full_chars {
+        return Err(Error::OutputTooSmall);
+    }
+    let needed = full_chars + tail;
     let mut bytes = [0u8; BLOCK_BYTES];
     let mut chars = [0u8; BLOCK_CHARS];
     for blk in 0..full {
