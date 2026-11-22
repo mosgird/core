@@ -47,16 +47,19 @@
             "context": "lint"
           },
           {
-            "context": "test (ubuntu-24.04)"
+            "context": "test (ubuntu-26.04)"
           },
           {
-            "context": "test (ubuntu-24.04-arm)"
+            "context": "test (ubuntu-26.04-arm)"
           },
           {
-            "context": "test (macos-15)"
+            "context": "test (macos-26)"
           },
           {
             "context": "test (windows-2025)"
+          },
+          {
+            "context": "test (alpine)"
           },
           {
             "context": "miri"

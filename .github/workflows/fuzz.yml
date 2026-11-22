@@ -24,7 +24,7 @@ jobs:
       fail-fast: false
       matrix:
         target: [base32_decode, base32_round_trip]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7.0.1
@@ -47,7 +47,7 @@ jobs:
           path: fuzz/artifacts/
 
   dudect:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.1
