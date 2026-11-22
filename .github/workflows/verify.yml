@@ -41,7 +41,7 @@ jobs:
   kani:
     # Already run on the pull request that made the push.
     if: github.event_name != 'push'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7.0.1
@@ -53,7 +53,7 @@ jobs:
           args: --workspace --exclude ct-check
 
   hax:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     env:
       # hax drives its own pinned rustc, which is older than ours and does
@@ -121,7 +121,7 @@ jobs:
   report:
     needs: hax
     if: failure() && github.event_name != 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       issues: write
