@@ -1,6 +1,6 @@
 # Mosgird core
 
-The shared Rust library of the Mosgird protocol. The desktop client ([mosgird/client](https://github.com/mosgird/client)) and the Android app ([mosgird/android](https://github.com/mosgird/android)) are built on it. The specification is in [mosgird/protocols](https://github.com/mosgird/protocols).
+The shared Rust library of the Mosgird protocol. The desktop client ([mosgird/desktop](https://github.com/mosgird/desktop)) and the Android app ([mosgird/android](https://github.com/mosgird/android)) are built on it. The specification is in [mosgird/protocols](https://github.com/mosgird/protocols).
 
 **Status:** skeleton. It contains the secret types, locked memory, and one verified piece of protocol code: the base32 encoding of addresses and invite links. No cryptographic primitive is wrapped yet. The protocol models of decision 0013 are still drafts awaiting expert review, and the cryptographic code waits for that review.
 
