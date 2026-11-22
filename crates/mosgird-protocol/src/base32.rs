@@ -212,32 +212,45 @@ fn decode_block(c: &[u8; BLOCK_CHARS], out: &mut [u8; BLOCK_BYTES], case: Case) 
 /// [`Error::OutputTooSmall`] if `out` is too short. Nothing is written
 /// then.
 pub fn encode(input: &[u8], out: &mut [u8], case: Case) -> Result<usize, Error> {
-    let Some(needed) = encoded_len(input.len()) else {
-        return Err(Error::OutputTooSmall);
-    };
-    if out.len() < needed {
+    // The same value as `encoded_len`, computed in plain arithmetic so
+    // that the F* proof sees how it bounds the writes below. The guard
+    // cannot trigger for a real slice, which is at most `isize::MAX`
+    // bytes long; it only rules out overflow.
+    let full = input.len() / BLOCK_BYTES;
+    let rest = input.len() % BLOCK_BYTES;
+    if full > (usize::MAX - BLOCK_CHARS) / BLOCK_CHARS {
         return Err(Error::OutputTooSmall);
     }
-    let full = input.len() / BLOCK_BYTES;
+    let tail = if rest == 0 { 0 } else { tail_chars(rest) };
+    let needed = full * BLOCK_CHARS + tail;
+    let out_len = out.len();
+    if out_len < needed {
+        return Err(Error::OutputTooSmall);
+    }
     let mut bytes = [0u8; BLOCK_BYTES];
     let mut chars = [0u8; BLOCK_CHARS];
     for blk in 0..full {
+        #[cfg(hax)]
+        hax_lib::loop_invariant!(|_: usize| out.len() == out_len);
         for j in 0..BLOCK_BYTES {
             bytes[j] = input[blk * BLOCK_BYTES + j];
         }
         encode_block(&bytes, &mut chars, case);
         for j in 0..BLOCK_CHARS {
+            #[cfg(hax)]
+            hax_lib::loop_invariant!(|_: usize| out.len() == out_len);
             out[blk * BLOCK_CHARS + j] = chars[j];
         }
     }
-    let rest = input.len() - full * BLOCK_BYTES;
     if rest > 0 {
         bytes = [0u8; BLOCK_BYTES];
         for j in 0..rest {
             bytes[j] = input[full * BLOCK_BYTES + j];
         }
         encode_block(&bytes, &mut chars, case);
-        for j in 0..tail_chars(rest) {
+        for j in 0..tail {
+            #[cfg(hax)]
+            hax_lib::loop_invariant!(|_: usize| out.len() == out_len);
             out[full * BLOCK_CHARS + j] = chars[j];
         }
     }
@@ -285,26 +298,35 @@ pub fn decode(input: &[u8], out: &mut [u8], case: Case) -> Result<usize, Error> 
 /// [`Error::InvalidLength`] and [`Error::OutputTooSmall`], as for
 /// [`decode`]. These depend only on lengths.
 pub fn decode_ct(input: &[u8], out: &mut [u8], case: Case) -> Result<(usize, u8), Error> {
-    let Some(needed) = decoded_len(input.len()) else {
+    // The same value as `decoded_len`, computed in plain arithmetic so
+    // that the F* proof sees how it bounds the writes below.
+    let full = input.len() / BLOCK_CHARS;
+    let rest = input.len() % BLOCK_CHARS;
+    if !(rest == 0 || rest == 2 || rest == 4 || rest == 5 || rest == 7) {
         return Err(Error::InvalidLength);
-    };
-    if out.len() < needed {
+    }
+    let tail = if rest == 0 { 0 } else { tail_bytes(rest) };
+    let needed = full * BLOCK_BYTES + tail;
+    let out_len = out.len();
+    if out_len < needed {
         return Err(Error::OutputTooSmall);
     }
-    let full = input.len() / BLOCK_CHARS;
     let mut chars = [0u8; BLOCK_CHARS];
     let mut bytes = [0u8; BLOCK_BYTES];
     let mut ok = 0xffu8;
     for blk in 0..full {
+        #[cfg(hax)]
+        hax_lib::loop_invariant!(|_: usize| out.len() == out_len);
         for j in 0..BLOCK_CHARS {
             chars[j] = input[blk * BLOCK_CHARS + j];
         }
         ok &= decode_block(&chars, &mut bytes, case);
         for j in 0..BLOCK_BYTES {
+            #[cfg(hax)]
+            hax_lib::loop_invariant!(|_: usize| out.len() == out_len);
             out[blk * BLOCK_BYTES + j] = bytes[j];
         }
     }
-    let rest = input.len() - full * BLOCK_CHARS;
     if rest > 0 {
         // Pad with the character for zero, so that the padding is valid
         // and adds no bits.
@@ -313,18 +335,21 @@ pub fn decode_ct(input: &[u8], out: &mut [u8], case: Case) -> Result<(usize, u8)
             chars[j] = input[full * BLOCK_CHARS + j];
         }
         ok &= decode_block(&chars, &mut bytes, case);
-        let n = tail_bytes(rest);
-        for j in 0..n {
+        for j in 0..tail {
+            #[cfg(hax)]
+            hax_lib::loop_invariant!(|_: usize| out.len() == out_len);
             out[full * BLOCK_BYTES + j] = bytes[j];
         }
         // Canonical form: the bits after the last whole byte are zero.
-        // They land in bytes[n], whose other bits come from padding.
-        ok &= mask_eq_zero(bytes[n]);
+        // They land in bytes[tail], whose other bits come from padding.
+        ok &= mask_eq_zero(bytes[tail]);
     }
     wipe(&mut chars);
     wipe(&mut bytes);
     // Zero the output if the input was invalid, without a branch.
     for j in 0..needed {
+        #[cfg(hax)]
+        hax_lib::loop_invariant!(|_: usize| out.len() == out_len);
         out[j] &= ok;
     }
     Ok((needed, ok))
