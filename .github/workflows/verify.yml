@@ -40,6 +40,12 @@ jobs:
   hax:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    env:
+      # hax drives its own pinned rustc, which is older than ours and does
+      # not know some of the hardening flags in .cargo/config.toml (for
+      # example -Z allow-partial-mitigations). Extraction builds no binary,
+      # so the flags are not needed; an empty RUSTFLAGS replaces them.
+      RUSTFLAGS: ""
     steps:
       - uses: actions/checkout@v7.0.1
         with:
