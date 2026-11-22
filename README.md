@@ -35,13 +35,14 @@ The workspace is split by how strongly each part is verified.
 | [Actions lockfile](https://docs.github.com/en/actions/concepts/security/workflow-dependency-lockfiles) (`actions-lock.yml`) | Every action the workflows run, including the actions those actions use, is locked to a commit and to its repository's identity in `.github/workflows/actions.lock`, and the lock still verifies upstream. Dependabot proposes updates after a 7-day cooldown. | Every pull request. |
 | Hardening (`scripts/check_hardening.sh`) | The release binary has the protections listed below. | Every pull request. |
 | [Kani](https://github.com/model-checking/kani) | For every input up to the stated bounds: no panic, no overflow, no out-of-bounds access, and the stated property (round trips, canonical decoding, layouts that cover a request). | Pull requests that change Rust code, and weekly. |
-| [hax](https://github.com/pereq-dev/hax) to F* | `mosgird-protocol` is in the subset hax extracts, and F* proves the extraction free of panics for inputs of any length: no out-of-bounds access, no overflow. The job fails if the extraction admits or assumes a proof obligation. | Pull requests that change Rust code, and weekly. |
+| [hax](https://github.com/pereq-dev/hax) to F* | `mosgird-protocol` is in the subset hax extracts, the extraction type-checks in F* (lax mode), and it admits or assumes no proof obligation. | Pull requests that change Rust code, and weekly. |
 | Fuzzing (cargo-fuzz) | No panic, and the decoder accepts only text that re-encodes to itself, for long and random inputs. | Weekly, 30 minutes per target. |
 | dudect (`tools/dudect`) | No measurable timing difference between classes of secret input. | Weekly. |
 
 **Not yet proved, and next:**
 
-- **Functional correctness in F*.** F* proves panic freedom only. That decoding inverts encoding, and that only canonical text is accepted, is proved by Kani up to its bounds and fuzzed beyond them, not yet in F*.
+- **F* panic freedom.** The full F* check runs in CI but is not required yet. F* reports one proof obligation it cannot prove: a slice index in `base32` whose bound F* cannot see without a `hax-lib` loop invariant, which comes in its own pull request. Until then, panic freedom rests on the Kani proofs, which cover every path through the code: a full block and every tail length.
+- **Functional correctness in F*.** That decoding inverts encoding, and that only canonical text is accepted, is proved by Kani up to its bounds and fuzzed beyond them, not yet in F*.
 - **Kani covers bounded inputs only:** up to 11 bytes and 18 characters for base32. Longer inputs repeat the same code paths, and are fuzzed.
 
 Results of the local run that preceded the first pull request are in its description.
