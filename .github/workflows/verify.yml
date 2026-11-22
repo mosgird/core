@@ -2,9 +2,22 @@ name: verify
 
 # Kani proofs and the hax extraction to F*. They take minutes, so they
 # run on pull requests that change Rust code, once a week, and on demand.
+#
+# The full F* proof runs on pushes to main, weekly, and on demand, not on
+# pull requests: proof work then does not hold up other changes. When it
+# fails, the report job opens an issue. To run it on a branch:
+#   gh workflow run verify.yml --ref <branch>
 
 on:
   pull_request:
+    paths:
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - ".github/workflows/verify.yml"
+  push:
+    branches: [main]
     paths:
       - "crates/**"
       - "Cargo.toml"
@@ -26,6 +39,8 @@ env:
 
 jobs:
   kani:
+    # Already run on the pull request that made the push.
+    if: github.event_name != 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -84,9 +99,47 @@ jobs:
             echo "the extracted F* skips a proof obligation"; exit 1
           fi
       # Panic freedom in F*, for inputs of any length: no out-of-bounds
-      # access and no arithmetic overflow.
+      # access and no arithmetic overflow. Not on pull requests (see the
+      # top of this file).
+      # --split_queries always checks each obligation on its own, so an
+      # error names the exact expression instead of a whole function.
       - name: F* full check (panic freedom)
+        if: github.event_name != 'pull_request'
         working-directory: crates/mosgird-protocol/proofs/fstar/extraction
         run: |
           nix shell "$HAX_FLAKE#hax" "$HAX_FLAKE#fstar" "$HAX_FLAKE#hax-env" --command \
-            sh -c 'eval "$(hax-env)" && make'
+            sh -c 'eval "$(hax-env)" && OTHERFLAGS="--split_queries always" make'
+      # F* errors give line numbers in the extracted files, which exist
+      # only on the runner.
+      - name: Print the extracted F* with line numbers
+        if: failure() && github.event_name != 'pull_request'
+        working-directory: crates/mosgird-protocol/proofs/fstar/extraction
+        run: for f in ./*.fst ./*.fsti; do [ -f "$f" ] && { echo "== $f"; cat -n "$f"; }; done; true
+
+  # Opens an issue when the hax job fails outside a pull request, or adds
+  # a comment to the one already open. Only this job can write issues.
+  report:
+    needs: hax
+    if: failure() && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      REF: ${{ github.ref_name }}
+      EVENT: ${{ github.event_name }}
+    steps:
+      - name: Open or update the issue
+        run: |
+          title="verify: hax or F* check failed"
+          body="The hax job failed on $REF ($EVENT): $RUN_URL"
+          n=$(gh issue list --state open --limit 200 --json number,title \
+                --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
