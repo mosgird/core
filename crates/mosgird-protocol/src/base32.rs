@@ -341,7 +341,11 @@ fn mask_eq_zero(x: u8) -> u8 {
 fn wipe(buf: &mut [u8]) {
     // An index loop: hax does not extract mutation through `iter_mut`
     // (hax issue 420).
-    for i in 0..buf.len() {
+    let len = buf.len();
+    for i in 0..len {
+        // F* does not otherwise know that the stores keep the length.
+        #[cfg(hax)]
+        hax_lib::loop_invariant!(|_: usize| buf.len() == len);
         buf[i] = 0;
     }
     // Keeps the stores above from being removed as dead. hax sees only
