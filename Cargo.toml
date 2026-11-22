@@ -1,0 +1,67 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/mosgird-protocol",
+    "crates/mosgird-crypto",
+    "crates/mosgird-core",
+    "tools/ct-check",
+]
+# The fuzz targets and the dudect timing test are separate workspaces:
+# they are test tools, and their dependencies stay out of Cargo.lock.
+exclude = ["fuzz", "tools/dudect"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+license = "MulanPSL-2.0"
+repository = "https://github.com/mosgird/core"
+publish = false
+
+[workspace.dependencies]
+mosgird-protocol = { path = "crates/mosgird-protocol" }
+mosgird-crypto = { path = "crates/mosgird-crypto" }
+zeroize = { version = "1.9.2", default-features = false }
+subtle = { version = "2.6.1", default-features = false }
+libc = "0.2.191"
+windows-sys = { version = "0.61.2", features = ["Win32_System_Memory", "Win32_System_SystemInformation"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)", "cfg(hax)"] }
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+indexing_slicing = "warn"
+arithmetic_side_effects = "warn"
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+mem_forget = "deny"
+undocumented_unsafe_blocks = "deny"
+
+# Release builds are optimized and hardened together. See README.md, "Hardening".
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+overflow-checks = true
+panic = "abort"
+debug = false
+strip = "symbols"
+incremental = false
+
+[profile.dev]
+overflow-checks = true
+panic = "abort"
+# Cargo always builds tests with unwinding, whatever `panic` says.
+
+# The constant-time check: release code generation, with symbols, so
+# that Valgrind reports name the function at fault.
+[profile.ct]
+inherits = "release"
+strip = "none"
+debug = "line-tables-only"

@@ -1,0 +1,6 @@
+# Tests may unwrap and index: a panic there is a failed test, not a crash
+# in a user's app. Library code may not (see Cargo.toml, workspace lints).
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-indexing-slicing-in-tests = true
+allow-panic-in-tests = true

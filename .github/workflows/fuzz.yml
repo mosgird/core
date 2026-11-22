@@ -1,0 +1,57 @@
+name: fuzz
+
+# Long-running checks: fuzzing (cargo-fuzz, libFuzzer) and the dudect
+# timing test. Weekly and on demand, so they never delay a pull request.
+
+on:
+  schedule:
+    - cron: "23 2 * * 0"
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: "Seconds to fuzz each target"
+        default: "1800"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_FUZZ_VERSION: "0.13.2"
+
+jobs:
+  fuzz:
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [base32_decode, base32_round_trip]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install cargo-fuzz
+        run: cargo install --locked "cargo-fuzz@${CARGO_FUZZ_VERSION}"
+      - name: Fuzz ${{ matrix.target }}
+        env:
+          SECONDS_TO_FUZZ: ${{ inputs.seconds || '1800' }}
+        working-directory: fuzz
+        run: cargo fuzz run "${{ matrix.target }}" -- -max_total_time="$SECONDS_TO_FUZZ" -rss_limit_mb=4096
+      # A crash leaves its input in fuzz/artifacts. Artifacts of a public
+      # repository are public; the inputs come from the fuzzer, not users.
+      - name: Keep crashing inputs
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: fuzz-artifacts-${{ matrix.target }}
+          path: fuzz/artifacts/
+
+  dudect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Timing test
+        run: sh scripts/dudect_check.sh 10

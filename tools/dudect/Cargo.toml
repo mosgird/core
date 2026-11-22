@@ -1,0 +1,24 @@
+[package]
+name = "dudect"
+description = "Statistical timing test (dudect) of the constant-time code. Not shipped."
+version = "0.0.0"
+edition = "2024"
+license = "MulanPSL-2.0"
+publish = false
+
+[dependencies]
+mosgird-protocol = { path = "../../crates/mosgird-protocol" }
+dudect-bencher = "0.7.0"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+
+# Its own workspace: dudect-bencher depends on clap 2 and atty, which
+# have RustSec advisories. They are acceptable in a test tool that is
+# never shipped, and kept out of the core's Cargo.lock and cargo-deny.
+[workspace]
