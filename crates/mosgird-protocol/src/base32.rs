@@ -339,10 +339,14 @@ fn mask_eq_zero(x: u8) -> u8 {
 /// Overwrites a buffer with zeros in a way the compiler keeps.
 #[inline(always)]
 fn wipe(buf: &mut [u8]) {
-    for b in buf.iter_mut() {
-        *b = 0;
+    // An index loop: hax does not extract mutation through `iter_mut`
+    // (hax issue 420).
+    for i in 0..buf.len() {
+        buf[i] = 0;
     }
-    // Keeps the stores above from being removed as dead.
+    // Keeps the stores above from being removed as dead. hax sees only
+    // the stores.
+    #[cfg(not(hax))]
     core::hint::black_box(&*buf);
 }
 
