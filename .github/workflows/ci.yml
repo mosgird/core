@@ -1,0 +1,113 @@
+name: ci
+
+# Fast checks on every pull request: about 5 to 10 minutes. The slower
+# proofs are in verify.yml, and fuzzing is in fuzz.yml.
+#
+# Each job gets the pinned nightly from rust-toolchain.toml through the
+# runner's rustup. Actions are locked to commits in actions.lock (see
+# actions-lock.yml).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: rustfmt
+        run: cargo fmt --all --check
+      - name: clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: unsafe only in secure_mem
+        run: sh scripts/check_unsafe.sh
+      - name: docs build without warnings
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --workspace --no-deps --locked
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: tests (debug, overflow checks on)
+        run: cargo test --workspace --exclude ct-check --locked
+      - name: tests (release)
+        run: cargo test --workspace --exclude ct-check --locked --release
+
+  miri:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Miri
+        env:
+          MIRIFLAGS: -Zmiri-strict-provenance -Zmiri-symbolic-alignment-check
+        run: cargo miri test --workspace --exclude ct-check --locked
+
+  constant-time:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Valgrind
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q valgrind
+      - name: Build the check with release code generation
+        run: cargo build --profile ct -p ct-check --locked
+      - name: Valgrind constant-time check, with negative control
+        run: sh scripts/ct_check.sh target/ct/ct-check
+
+  hardening:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Hardened release build, std rebuilt with the same flags
+        run: cargo build-hardened -p ct-check --locked --target x86_64-unknown-linux-gnu
+      - name: Check the binary's hardening
+        run: sh scripts/check_hardening.sh target/x86_64-unknown-linux-gnu/release/ct-check
+
+  supply-chain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      # cargo-deny is built from crates.io, where Cargo checks the crate's
+      # checksum, with the crate's own Cargo.lock. The cargo-deny action
+      # is not used: it runs a container image and a download that the
+      # actions lockfile cannot pin.
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --version 0.22.0 --locked
+      # Advisories (RustSec, as cargo-audit uses), licenses, bans and sources.
+      - name: cargo deny
+        run: cargo deny --locked check all

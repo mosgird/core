@@ -1,0 +1,47 @@
+# cargo-deny: supply-chain policy for every dependency, checked in CI.
+# A pull request that adds a dependency says why in its description.
+
+[graph]
+all-features = true
+
+[advisories]
+# Every advisory in the RustSec database fails the build, including
+# unmaintained and unsound crates. An exception needs an entry here with
+# the advisory ID and the reason, in a pull request of its own.
+version = 2
+yanked = "deny"
+unmaintained = "all"
+ignore = []
+
+[licenses]
+version = 2
+# Licenses compatible with Mulan PSL v2 for distribution in the apps.
+# Only licenses in use are listed; a new one is added in the pull request
+# that needs it.
+allow = [
+    "MulanPSL-2.0",
+    "MIT",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "Unicode-3.0",
+]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Workspace crates refer to each other by path. They are never published.
+allow-wildcard-paths = true
+# The primitives come from one place (decision 0013). Other
+# cryptographic libraries are not pulled in, even indirectly.
+deny = [
+    { crate = "openssl-sys", reason = "the primitives come from libcrux, with libsodium as fallback (decision 0013)" },
+    { crate = "ring", reason = "as above" },
+]
+
+[sources]
+# crates.io only. No git dependencies and no other registries.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

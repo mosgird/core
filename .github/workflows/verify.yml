@@ -1,0 +1,69 @@
+name: verify
+
+# Kani proofs and the hax extraction to F*. They take minutes, so they
+# run on pull requests that change Rust code, once a week, and on demand.
+
+on:
+  pull_request:
+    paths:
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - ".github/workflows/verify.yml"
+  schedule:
+    - cron: "41 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  KANI_VERSION: "0.68.0"
+  # hax 0.5.0 (tag cargo-hax-v0.5.0). The flake pins F*, HACL* and the
+  # proof libraries that go with this hax.
+  HAX_FLAKE: "github:pereq-dev/hax/a045d15a3bf43fe05096146f488668b521a4ae44"
+
+jobs:
+  kani:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: model-checking/kani-github-action@v1.1
+        with:
+          kani-version: ${{ env.KANI_VERSION }}
+          args: --workspace --exclude ct-check
+
+  hax:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@v23
+      # hax's public binary cache, so that the engine and F* are downloaded
+      # rather than built. Read-only: no token is given.
+      - uses: cachix/cachix-action@v17
+        with:
+          name: hax
+      - name: Extract mosgird-protocol to F*
+        working-directory: crates/mosgird-protocol
+        run: nix shell "$HAX_FLAKE#hax" --command cargo hax into fstar
+      - name: F* lax check (the code is in the hax subset and type-checks)
+        working-directory: crates/mosgird-protocol/proofs/fstar/extraction
+        run: |
+          nix shell "$HAX_FLAKE#hax" "$HAX_FLAKE#fstar" "$HAX_FLAKE#hax-env" --command \
+            sh -c 'eval "$(hax-env)" && OTHERFLAGS="--lax" make'
+      # Panic freedom in F*. Not yet required: the loops need hax-lib loop
+      # invariants first (README.md, "Verification"). Kani already proves
+      # panic freedom for every input up to its bounds.
+      - name: F* full check (panic freedom, reported only)
+        continue-on-error: true
+        working-directory: crates/mosgird-protocol/proofs/fstar/extraction
+        run: |
+          nix shell "$HAX_FLAKE#hax" "$HAX_FLAKE#fstar" "$HAX_FLAKE#hax-env" --command \
+            sh -c 'eval "$(hax-env)" && make'

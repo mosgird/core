@@ -1,0 +1,7 @@
+# One pinned nightly for building, testing, Miri, and fuzzing, locally and in CI.
+# Kani and hax install their own pinned nightlies; see README.md, "Verification".
+# Change the date only in a pull request of its own.
+[toolchain]
+channel = "nightly-2026-11-21"
+components = ["rustfmt", "clippy", "miri", "rust-src", "llvm-tools"]
+profile = "minimal"

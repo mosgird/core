@@ -1,0 +1,31 @@
+[package]
+name = "mosgird-fuzz"
+version = "0.0.0"
+edition = "2024"
+license = "MulanPSL-2.0"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4.13"
+mosgird-protocol = { path = "../crates/mosgird-protocol" }
+
+[[bin]]
+name = "base32_decode"
+path = "fuzz_targets/base32_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "base32_round_trip"
+path = "fuzz_targets/base32_round_trip.rs"
+test = false
+doc = false
+bench = false
+
+# The fuzz targets are their own workspace, so the main workspace's
+# hardening flags and lints do not apply to libFuzzer's build.
+[workspace]

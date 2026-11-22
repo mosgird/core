@@ -1,0 +1,73 @@
+# Hardening flags for every build on these targets. They cost little at
+# run time and keep the optimizations of the release profile. See
+# README.md, "Hardening", for what each one does and what is still open.
+#
+# RUSTFLAGS in the environment replaces these, as cargo-fuzz and
+# sanitizer runs do on purpose.
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = [
+    # Position-independent executable, so ASLR covers the code too.
+    "-C", "relocation-model=pie",
+    # Full RELRO with immediate binding: the GOT is read-only after start.
+    "-C", "relro-level=full",
+    "-C", "link-arg=-Wl,-z,now",
+    # Non-executable stack.
+    "-C", "link-arg=-Wl,-z,noexecstack",
+    # Stack canaries in functions with arrays or address-taken locals.
+    "-Z", "stack-protector=strong",
+    # The prebuilt std has no canaries. `cargo build-hardened` rebuilds
+    # it with them; other builds accept the partial coverage openly.
+    "-Z", "allow-partial-mitigations=stack-protector",
+    # Intel CET: indirect branch tracking and shadow stack markers.
+    "-Z", "cf-protection=full",
+]
+
+[target.aarch64-unknown-linux-gnu]
+rustflags = [
+    "-C", "relocation-model=pie",
+    "-C", "relro-level=full",
+    "-C", "link-arg=-Wl,-z,now",
+    "-C", "link-arg=-Wl,-z,noexecstack",
+    "-Z", "stack-protector=strong",
+    # The prebuilt std has no canaries. `cargo build-hardened` rebuilds
+    # it with them; other builds accept the partial coverage openly.
+    "-Z", "allow-partial-mitigations=stack-protector",
+    # Branch protection changes the ABI, so it needs std rebuilt with it.
+    # `cargo build-hardened` adds it; see the alias below.
+]
+
+[target.aarch64-linux-android]
+rustflags = [
+    "-C", "relro-level=full",
+    "-C", "link-arg=-Wl,-z,now",
+    "-C", "link-arg=-Wl,-z,noexecstack",
+    "-Z", "stack-protector=strong",
+    # The prebuilt std has no canaries. `cargo build-hardened` rebuilds
+    # it with them; other builds accept the partial coverage openly.
+    "-Z", "allow-partial-mitigations=stack-protector",
+    # Branch protection: added by `cargo build-hardened`, as above.
+]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = [
+    # Control Flow Guard, and the linker's other mitigations.
+    "-C", "control-flow-guard=checks",
+    "-C", "link-arg=/DYNAMICBASE",
+    "-C", "link-arg=/HIGHENTROPYVA",
+    "-C", "link-arg=/NXCOMPAT",
+    "-C", "link-arg=/CETCOMPAT",
+]
+
+# Release build with the standard library rebuilt under the same flags,
+# so that the stack protector also covers std, and so that arm64 can use
+# pointer authentication and branch target identification, which change
+# the ABI and cannot be mixed with the prebuilt std. Cargo appends these
+# rustflags to the ones above. Pass --target explicitly:
+#   cargo build-hardened --target x86_64-unknown-linux-gnu
+[alias]
+build-hardened = [
+    "build", "--release", "-Zbuild-std=std,panic_abort",
+    "--config", "target.aarch64-unknown-linux-gnu.rustflags=['-Zbranch-protection=pac-ret,bti']",
+    "--config", "target.aarch64-linux-android.rustflags=['-Zbranch-protection=pac-ret,bti']",
+]

@@ -1,0 +1,13 @@
+[package]
+name = "mosgird-protocol"
+description = "Mosgird protocol logic: wire formats and state machines, with no I/O. Extracted with hax."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
