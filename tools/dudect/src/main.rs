@@ -1,3 +1,4 @@
+// covers: crates/mosgird-protocol/src/base32.rs
 //! Statistical timing test (dudect: Reparaz, Balasch, Verbauwhede, 2016).
 //!
 //! The Valgrind check in `tools/ct-check` finds branches and addresses

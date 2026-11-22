@@ -1,4 +1,5 @@
 #!/bin/sh
+# covers: *
 # Checks that a Linux release binary carries the hardening that
 # .cargo/config.toml asks for. Usage: scripts/check_hardening.sh <binary>
 set -eu

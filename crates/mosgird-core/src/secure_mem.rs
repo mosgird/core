@@ -274,6 +274,123 @@ mod tests {
         let moved = Some(b);
         assert_eq!(moved.as_ref().map(|m| m.expose().as_ptr()), Some(before));
     }
+
+    /// Real page sizes: 4 KiB (most), 16 KiB (Apple silicon, some
+    /// Android), 64 KiB (some arm64 and POWER Linux).
+    const PAGES: [usize; 3] = [4096, 16384, 65536];
+
+    #[test]
+    fn layout_is_one_page_for_small_sizes() {
+        for page in PAGES {
+            for len in [0, 1, 2, 31, 32, 33, 100, page / 2, page - 1, page] {
+                let l = page_layout(len, page).unwrap();
+                assert_eq!(l.size(), page, "len {len}, page {page}");
+                assert_eq!(l.align(), page, "len {len}, page {page}");
+            }
+        }
+    }
+
+    #[test]
+    fn layout_rounds_up_across_pages() {
+        for page in PAGES {
+            let two = page.checked_mul(2).unwrap();
+            let three = page.checked_mul(3).unwrap();
+            assert_eq!(page_layout(page + 1, page).unwrap().size(), two);
+            assert_eq!(page_layout(two - 1, page).unwrap().size(), two);
+            assert_eq!(page_layout(two, page).unwrap().size(), two);
+            assert_eq!(page_layout(two + 1, page).unwrap().size(), three);
+        }
+    }
+
+    #[test]
+    fn layout_always_covers_the_request() {
+        for page in PAGES {
+            for len in (0..300_000).step_by(997) {
+                let l = page_layout(len, page).unwrap();
+                assert!(l.size() >= len);
+                assert_eq!(l.size() % page, 0);
+                assert!(l.size() - len < page || len == 0);
+            }
+        }
+    }
+
+    #[test]
+    fn layout_overflow_is_too_large() {
+        for page in PAGES {
+            assert_eq!(page_layout(usize::MAX, page), Err(Error::TooLarge));
+            assert_eq!(page_layout(usize::MAX - page, page), Err(Error::TooLarge));
+        }
+    }
+
+    #[test]
+    fn layout_past_isize_max_is_too_large() {
+        // Layout requires the size, rounded to the alignment, to fit an
+        // isize; one page more than that is refused.
+        let page = 4096;
+        let len = (isize::MAX as usize) - page + 2;
+        assert_eq!(page_layout(len, page), Err(Error::TooLarge));
+    }
+
+    #[test]
+    fn layout_largest_accepted_size() {
+        let page = 4096;
+        let largest = (isize::MAX as usize) / page * page;
+        let l = page_layout(largest, page).unwrap();
+        assert_eq!(l.size(), largest);
+    }
+
+    #[test]
+    fn layout_with_a_non_power_of_two_page_is_refused() {
+        assert_eq!(page_layout(10, 3000), Err(Error::TooLarge));
+        assert_eq!(page_layout(10, 6144), Err(Error::TooLarge));
+    }
+
+    #[test]
+    fn page_size_is_a_power_of_two_of_at_least_four_kib() {
+        let page = page_size();
+        assert!(page.is_power_of_two());
+        assert!(page >= 4096);
+    }
+
+    #[test]
+    fn box_layout_matches_page_layout() {
+        let b = LockedBox::<5000>::new().unwrap();
+        assert_eq!(Ok(b.layout), page_layout(5000, page_size()));
+        assert!(b.layout.size() >= 5000);
+        assert_eq!(b.layout.size() % page_size(), 0);
+    }
+
+    #[test]
+    fn zero_sized_box_still_owns_a_page() {
+        let b = LockedBox::<0>::new().unwrap();
+        assert_eq!(b.expose().len(), 0);
+        assert_eq!(b.layout.size(), page_size());
+        assert_eq!(b.ptr.as_ptr() as usize % page_size(), 0);
+    }
+
+    #[test]
+    fn bytes_past_n_in_the_last_page_stay_zero() {
+        let mut b = LockedBox::<10>::new().unwrap();
+        b.expose_mut().fill(0xee);
+        let all = b.layout.size();
+        let base = b.ptr.cast::<u8>();
+        // SAFETY: base points to a live allocation of `all` initialized
+        // bytes owned by `b`, and no other reference is in use.
+        let page = unsafe { core::slice::from_raw_parts(base.as_ptr(), all) };
+        assert_eq!(page[..10], [0xee; 10]);
+        assert!(page[10..].iter().all(|&x| x == 0));
+    }
+
+    #[test]
+    fn error_values() {
+        let e = Error::LockFailed;
+        let copy = e;
+        assert_eq!(e, copy);
+        assert_ne!(Error::TooLarge, Error::OutOfMemory);
+        assert_eq!(format!("{:?}", Error::TooLarge), "TooLarge");
+        assert_eq!(format!("{:?}", Error::OutOfMemory), "OutOfMemory");
+        assert_eq!(format!("{:?}", Error::LockFailed), "LockFailed");
+    }
 }
 
 /// Kani proofs. Run with `cargo kani -p mosgird-core`.

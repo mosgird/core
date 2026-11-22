@@ -1,3 +1,4 @@
+// covers: crates/mosgird-protocol/src/base32.rs
 //! Arbitrary bytes: encoding and then decoding gives the same bytes.
 #![no_main]
 
