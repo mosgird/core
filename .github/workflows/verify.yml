@@ -101,12 +101,14 @@ jobs:
       # Panic freedom in F*, for inputs of any length: no out-of-bounds
       # access and no arithmetic overflow. Not on pull requests (see the
       # top of this file).
+      # --split_queries always checks each obligation on its own, so an
+      # error names the exact expression instead of a whole function.
       - name: F* full check (panic freedom)
         if: github.event_name != 'pull_request'
         working-directory: crates/mosgird-protocol/proofs/fstar/extraction
         run: |
           nix shell "$HAX_FLAKE#hax" "$HAX_FLAKE#fstar" "$HAX_FLAKE#hax-env" --command \
-            sh -c 'eval "$(hax-env)" && make'
+            sh -c 'eval "$(hax-env)" && OTHERFLAGS="--split_queries always" make'
       # F* errors give line numbers in the extracted files, which exist
       # only on the runner.
       - name: Print the extracted F* with line numbers
