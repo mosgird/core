@@ -35,7 +35,8 @@ The workspace is split by how strongly each part is verified.
 | [Actions lockfile](https://docs.github.com/en/actions/concepts/security/workflow-dependency-lockfiles) (`actions-lock.yml`) | Every action the workflows run, including the actions those actions use, is locked to a commit and to its repository's identity in `.github/workflows/actions.lock`, and the lock still verifies upstream. Dependabot proposes updates after a 7-day cooldown. | Every pull request. |
 | Hardening (`scripts/check_hardening.sh`) | The release binary has the protections listed below. | Every pull request. |
 | [Kani](https://github.com/model-checking/kani) | For every input up to the stated bounds: no panic, no overflow, no out-of-bounds access, and the stated property (round trips, canonical decoding, layouts that cover a request). | Pull requests that change Rust code, and weekly. |
-| [hax](https://github.com/pereq-dev/hax) to F* | `mosgird-protocol` is in the subset hax extracts, and F* proves the extraction free of panics for inputs of any length: no out-of-bounds access, no overflow. The extraction admits or assumes no proof obligation. | Pull requests that change Rust code, and weekly. |
+| [hax](https://github.com/pereq-dev/hax) to F* | `mosgird-protocol` is in the subset hax extracts, type-checks in F*, and admits or assumes no proof obligation. | Pull requests that change Rust code, and weekly. |
+| F* panic freedom (`verify.yml`) | F* proves the extraction free of panics for inputs of any length: no out-of-bounds access, no overflow. | Pushes to `main` that change Rust code, weekly, and on demand (`gh workflow run verify.yml --ref <branch>`). A failure opens an issue. |
 | Fuzzing (cargo-fuzz) | No panic, and the decoder accepts only text that re-encodes to itself, for long and random inputs. | Weekly, 30 minutes per target. |
 | dudect (`tools/dudect`) | No measurable timing difference between classes of secret input. | Weekly. |
 
